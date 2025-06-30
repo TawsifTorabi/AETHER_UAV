@@ -1,6 +1,6 @@
 # AETHER UAV  
-**Advanced Electronic Tactical Hybrid Emergency Reconnaissance Unmanned Aerial Vehicle**
-This is prototype of the final outcome of the project.
+**Advanced Electronic Tactical Hybrid Emergency Reconnaissance Unmanned Aerial Vehicle**  
+This is a prototype of the outcome of the proposed project.
 
 ---
 
@@ -25,7 +25,12 @@ Bangladesh has seen a sharp rise in fire-related incidents and natural disasters
 
 ## 🛠️ Project Description
 
+
 ### 🔧 Drone Architecture
+
+![image](https://github.com/user-attachments/assets/f764377f-fac9-469f-8e63-7b3df8e916c6)
+
+
 - **Frame**: Modular carbon fiber, foldable for portability.
 - **Motors**: VELOX V2812 925KV BLDC for high-efficiency propulsion.
 - **Flight Controller**: GEPRC F722 for PID tuning and GPS-based navigation.
@@ -41,6 +46,10 @@ Bangladesh has seen a sharp rise in fire-related incidents and natural disasters
 - **Navigation**: Foxeer M10Q GPS with autonomous waypoint support.
 
 ### 📡 Beacon Transmitter
+
+![image](https://github.com/user-attachments/assets/2a88731d-e56b-42fd-a48d-6421cee3fca4)
+
+
 An independent long-endurance module with:
 - GPS (Ublox Neo6M)
 - LoRa SX1278 transceiver
