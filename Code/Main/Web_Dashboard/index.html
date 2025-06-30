@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tracker + Thermal + Webcam</title>
+
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        background-color: #111;
+        color: white;
+        font-family: "Bebas Neue", sans-serif;
+        font-weight: 400;
+        font-style: normal;
+      }
+
+      #map {
+        height: 360px;
+        width: 100%;
+      }
+
+      canvas {
+        image-rendering: pixelated;
+        border: 2px solid #444;
+      }
+
+      #thermalCanvas {
+        width: 320px;
+        height: 240px;
+        -webkit-transform: scaleX(-1);
+        transform: scaleX(-1);
+      }
+
+      #scaleCanvas {
+        height: 240px;
+        width: 20px;
+      }
+
+      .scale-labels {
+        height: 240px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        color: #ccc;
+        font-size: 0.8rem;
+      }
+
+      video {
+        aspect-ratio: 16 / 9;
+        width: 100%;
+        height: auto;
+        max-height: 100%;
+        object-fit: cover;
+        border: 2px solid #444;
+        background-color: black;
+      }
+
+      .camera-select {
+        margin-top: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid py-4">
+      <h2 class="text-center mb-4">Project AETHER</h2>
+
+      <!-- Main Views Row -->
+      <div class="row g-4">
+        <!-- Column 1: Map and Thermal -->
+        <div class="col-lg-6">
+          <!-- Map -->
+          <div class="mb-4">
+            <h5 class="text-center">Beacon Location</h5>
+            <div id="map" class="rounded border"></div>
+          </div>
+
+          <!-- Thermal -->
+          <div>
+            <h5 class="text-center">Thermal Visualizer</h5>
+            <div class="d-flex align-items-start justify-content-center gap-2">
+              <canvas id="thermalCanvas" width="32" height="24"></canvas>
+              <div class="scale-labels">
+                <div id="maxTemp">--°C</div>
+                <canvas id="scaleCanvas" width="20" height="240"></canvas>
+                <div id="minTemp">--°C</div>
+              </div>
+              <div class="d-flex flex-column align-items-start ms-3">
+                <button class="btn btn-danger mb-2" onclick="dropBeacon()">
+                  Drop Beacon
+                </button>
+                <div id="beaconStatus" class="text-success small">
+                  Not Deployed
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 2: Webcam -->
+        <div class="col-lg-6">
+          <h5 class="text-center">Drone Camera</h5>
+          <video id="webcam" autoplay playsinline muted></video>
+        </div>
+      </div>
+
+      <!-- WebSocket Inputs -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-6 col-lg-4">
+          <br /><br />
+          <div class="input-group">
+            <span class="input-group-text">Location WS:</span>
+            <input
+              type="text"
+              id="wsLocationUrl"
+              class="form-control"
+              placeholder="ws://localhost:8766"
+              value="ws://localhost:8766"
+            />
+            <button class="btn btn-primary" onclick="connectLocationWS()">
+              Connect
+            </button>
+          </div>
+          <div class="mt-1" id="mapStatus" style="color: lime">
+            Not connected
+          </div>
+
+          <div class="input-group">
+            <span class="input-group-text">Thermal WS:</span>
+            <input
+              type="text"
+              id="ipInput"
+              class="form-control"
+              value="localhost"
+              placeholder="ESP32 IP (e.g. 192.168.0.55)"
+            />
+            <input
+              type="text"
+              id="portInput"
+              class="form-control"
+              value="8765"
+            />
+            <button class="btn btn-success" onclick="connectThermalWS()">
+              Connect
+            </button>
+          </div>
+          <div class="mt-1" id="thermalStatus" style="color: lime">
+            Not connected
+          </div>
+
+          <!-- Beacon Socket -->
+          <div class="input-group mt-2">
+            <span class="input-group-text">Beacon WS:</span>
+            <input
+              type="text"
+              id="beaconWsInput"
+              class="form-control"
+              placeholder="ws://localhost:8767"
+              value="ws://localhost:8767"
+            />
+            <button class="btn btn-warning" onclick="connectBeaconSocket()">
+              Connect
+            </button>
+          </div>
+          <div id="beaconSocketStatus" class="mt-1 text-info small">
+            Not connected
+          </div>
+
+          <div class="col-md-12 col-lg-4">
+            <select
+              id="cameraSelect"
+              class="form-select camera-select"
+              onchange="switchCamera()"
+            ></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+      // ========== MAP ==========
+      let map, marker, locationSocket;
+
+      function initMap() {
+        map = L.map("map").setView([23.797695, 90.449677], 16);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors",
+        }).addTo(map);
+        marker = L.marker([23.797695, 90.449677])
+          .addTo(map)
+          .bindPopup("Live Location")
+          .openPopup();
+      }
+
+      function connectLocationWS() {
+        const url = document.getElementById("wsLocationUrl").value.trim();
+        const status = document.getElementById("mapStatus");
+
+        if (!url.startsWith("ws://") && !url.startsWith("wss://")) {
+          alert("Invalid WebSocket URL.");
+          status.textContent = "Invalid URL";
+          status.style.color = "red";
+          return;
+        }
+
+        if (locationSocket) locationSocket.close();
+
+        locationSocket = new WebSocket(url);
+        status.textContent = "Connecting...";
+        status.style.color = "orange";
+
+        locationSocket.onopen = () => {
+          status.textContent = "Connected";
+          status.style.color = "lime";
+        };
+
+        locationSocket.onerror = () => {
+          status.textContent = "Connection error";
+          status.style.color = "red";
+        };
+
+        locationSocket.onclose = () => {
+          status.textContent = "Disconnected";
+          status.style.color = "red";
+        };
+
+        locationSocket.onmessage = (event) => {
+          const match = event.data.match(/Lat:(-?\d+\.\d+),Lng:(-?\d+\.\d+)/);
+          if (match) {
+            const lat = parseFloat(match[1]);
+            const lng = parseFloat(match[2]);
+            marker.setLatLng([lat, lng]);
+            map.setView([lat, lng]);
+          }
+        };
+      }
+
+      // ========== BEACON DROP SOCKET ==========
+      let beaconSocket;
+
+      function connectBeaconSocket() {
+        const url = document.getElementById("beaconWsInput").value.trim();
+        const status = document.getElementById("beaconSocketStatus");
+
+        if (!url.startsWith("ws://") && !url.startsWith("wss://")) {
+          status.textContent = "Invalid URL";
+          status.style.color = "red";
+          return;
+        }
+
+        if (beaconSocket) beaconSocket.close();
+
+        beaconSocket = new WebSocket(url);
+        status.textContent = "Connecting...";
+        status.style.color = "orange";
+
+        beaconSocket.onopen = () => {
+          status.textContent = "Connected";
+          status.style.color = "lime";
+        };
+
+        beaconSocket.onerror = () => {
+          status.textContent = "Connection error";
+          status.style.color = "red";
+        };
+
+        beaconSocket.onclose = () => {
+          status.textContent = "Disconnected";
+          status.style.color = "red";
+        };
+      }
+
+      function dropBeacon() {
+        if (beaconSocket && beaconSocket.readyState === WebSocket.OPEN) {
+          beaconSocket.send("drop");
+          const beaconStatus = document.getElementById("beaconStatus");
+          beaconStatus.textContent = "Location Beacon Deployed";
+          beaconStatus.classList.remove("text-danger");
+          beaconStatus.classList.add("text-success");
+        } else {
+          alert("Beacon socket not connected.");
+        }
+      }
+
+      // ========== THERMAL ==========
+      const canvas = document.getElementById("thermalCanvas");
+      const ctx = canvas.getContext("2d");
+      const scaleCanvas = document.getElementById("scaleCanvas");
+      const scaleCtx = scaleCanvas.getContext("2d");
+      let thermalSocket;
+
+      function connectThermalWS() {
+        const ip = document.getElementById("ipInput").value.trim();
+        const port = document.getElementById("portInput").value.trim();
+        const status = document.getElementById("thermalStatus");
+
+        const wsUrl = `ws://${ip}:${port}`;
+        if (thermalSocket) thermalSocket.close();
+
+        thermalSocket = new WebSocket(wsUrl);
+        status.textContent = "Connecting...";
+        status.style.color = "orange";
+
+        thermalSocket.onopen = () => {
+          status.textContent = "Connected";
+          status.style.color = "lime";
+        };
+
+        thermalSocket.onerror = () => {
+          status.textContent = "Connection error";
+          status.style.color = "red";
+        };
+
+        thermalSocket.onclose = () => {
+          status.textContent = "Disconnected";
+          status.style.color = "red";
+        };
+
+        thermalSocket.onmessage = (event) => {
+          const data = event.data.split(",").map(parseFloat);
+          if (data.length !== 768) return;
+
+          const min = Math.min(...data);
+          const max = Math.max(...data);
+          const imgData = ctx.createImageData(32, 24);
+
+          for (let i = 0; i < data.length; i++) {
+            const norm = (data[i] - min) / (max - min);
+            const [r, g, b] = getThermalColor(norm);
+            imgData.data[i * 4] = r;
+            imgData.data[i * 4 + 1] = g;
+            imgData.data[i * 4 + 2] = b;
+            imgData.data[i * 4 + 3] = 255;
+          }
+
+          ctx.save(); // Save current transform state
+          ctx.scale(-1, 1); // Flip horizontally
+          ctx.translate(-canvas.width, 0); // Move canvas back into view
+          ctx.putImageData(imgData, 0, 0);
+          ctx.restore(); // Restore to original state
+          drawColorScale(min, max);
+        };
+      }
+
+      function getThermalColor(v) {
+        v = Math.min(1, Math.max(0, v));
+        let r = 0,
+          g = 0,
+          b = 0;
+        if (v < 0.25) {
+          g = Math.round(4 * v * 255);
+          b = 255;
+        } else if (v < 0.5) {
+          g = 255;
+          b = Math.round(255 - 4 * (v - 0.25) * 255);
+        } else if (v < 0.75) {
+          r = Math.round(4 * (v - 0.5) * 255);
+          g = 255;
+        } else {
+          r = 255;
+          g = Math.round(255 - 4 * (v - 0.75) * 255);
+          b = Math.round(4 * (v - 0.75) * 255);
+        }
+        return [r, g, b];
+      }
+
+      function drawColorScale(minTemp, maxTemp) {
+        const gradient = scaleCtx.createLinearGradient(
+          0,
+          0,
+          0,
+          scaleCanvas.height
+        );
+        for (let i = 0; i <= 100; i++) {
+          const t = i / 100;
+          const [r, g, b] = getThermalColor(1 - t);
+          gradient.addColorStop(t, `rgb(${r},${g},${b})`);
+        }
+
+        scaleCtx.fillStyle = gradient;
+        scaleCtx.fillRect(0, 0, scaleCanvas.width, scaleCanvas.height);
+        document.getElementById("minTemp").textContent = `${minTemp.toFixed(
+          1
+        )}°C`;
+        document.getElementById("maxTemp").textContent = `${maxTemp.toFixed(
+          1
+        )}°C`;
+      }
+
+      // ========== WEBCAM ==========
+      const video = document.getElementById("webcam");
+      const cameraSelect = document.getElementById("cameraSelect");
+      let currentStream;
+
+      async function getCameras() {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        cameraSelect.innerHTML = "";
+        devices.forEach((device, index) => {
+          if (device.kind === "videoinput") {
+            const option = document.createElement("option");
+            option.value = device.deviceId;
+            option.text = device.label || `Camera ${index + 1}`;
+            cameraSelect.appendChild(option);
+          }
+        });
+        if (cameraSelect.options.length > 0) {
+          switchCamera();
+        }
+      }
+
+      async function switchCamera() {
+        if (currentStream) {
+          currentStream.getTracks().forEach((track) => track.stop());
+        }
+
+        const deviceId = cameraSelect.value;
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId },
+          });
+          video.srcObject = stream;
+          currentStream = stream;
+        } catch (err) {
+          console.error("Camera error:", err);
+          alert("Unable to access camera.");
+        }
+      }
+
+      // Initialize all
+      window.onload = () => {
+        initMap();
+        getCameras();
+      };
+    </script>
+  </body>
+</html>
