@@ -1,6 +1,8 @@
 # AETHER UAV  
-**Advanced Electronic Tactical Hybrid Emergency Reconnaissance Unmanned Aerial Vehicle**  
-This is a prototype of the outcome of the proposed project.
+## Advanced Electronic Tactical Hybrid Emergency Reconnaissance Unmanned Aerial Vehicle
+**This is a rapid prototype of the outcome of the proposed project.**     
+
+![Screenshot 2025-07-02 024534](https://github.com/user-attachments/assets/f5ce2689-0887-4562-9c39-070e906ad289)
 
 ---
 
@@ -46,7 +48,10 @@ Bangladesh has seen a sharp rise in fire-related incidents and natural disasters
 - **Environmental Sensors**: Smoke (MQ02), Carbon Monoxide (MQ09).
 - **Navigation**: Foxeer M10Q GPS with autonomous waypoint support.
 
-![image](https://raw.githubusercontent.com/ifta-faisal/Project-Dead-Cat/main/Diagram.jpg)
+#### Drone Base Hardware Schematic
+<img src="https://raw.githubusercontent.com/ifta-faisal/Project-Dead-Cat/main/Diagram.jpg" alt="image" width="500" height="auto">
+
+---
 
 ### 📡 Beacon Transmitter
 
@@ -79,6 +84,35 @@ An independent long-endurance module with:
 | Buzzer                 | 5V Active Buzzer               | Rescue alert                             |
 | LoRa Module            | SX1278                         | Location beacon transmission             |
 | Environmental Sensors  | MQ02, MQ09                     | Smoke & CO detection                     |
+
+---
+# 🕹 Integrations
+## Thermal Camera Visualization to Dashboard
+The MLX90640 Thermal Camera is a 32x42 Thermal camera module, which can use I2C to transfer thermal image frames. 
+It can support up to 32Hz frame rate. But due to ESP32's low processing power, we will not overload it and keep it to 8Hz. These frames are sent to a websocket server in the base station via a wireless access point link. After being broadcast, the data gets parsed to the dashboard by JavaScript Websocket API and a Custom JavaScript code to generate a Thermal Visualizer to provide better human interaction with the thermal camera data. 
+
+Here is the complete flow chart of the thermal image processing. [View the Full Diagram](https://github.com/TawsifTorabi/AETHER_UAV/blob/main/docs/Flowcharts/ThermalCameraFlowchart.svg)
+
+```mermaid
+flowchart TD
+    Start([Start]) --> Init[/"Initialize ESP32 and MLX90640 via I2C"/]
+    Init --> CheckConn{ESP32 Connected to AP}
+    CheckConn -- Yes --> Capture["Capture thermal frame from MLX90640"]
+    CheckConn -- No --> Error1[[Display Error: No WiFi Connection]]
+    Error1 --> End
+
+    Capture --> ConnectWS{WebSocket Connected to Laptop}
+    ConnectWS -- Yes --> SendFrame["Send frame via WebSocket"]
+    ConnectWS -- No --> RetryConn["Retry WebSocket Connection"]
+    RetryConn --> ConnectWS
+
+    SendFrame --> OnLaptop["Laptop WebSocket Server Receives Frame"]
+    OnLaptop --> Parse["Parse frame using JavaScript"]
+    Parse --> Canvas["Create Canvas Element"]
+    Canvas --> Render["Render Thermal Image on Canvas"]
+    Render --> End([End])
+
+```
 
 ---
 
