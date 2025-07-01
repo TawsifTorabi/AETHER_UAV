@@ -26,9 +26,10 @@ Bangladesh has seen a sharp rise in fire-related incidents and natural disasters
 ## 🛠️ Project Description
 
 
-### 🔧 Drone Architecture
+### 🔧 System Architecture
 
-![image](https://github.com/user-attachments/assets/f764377f-fac9-469f-8e63-7b3df8e916c6)
+![image](https://raw.githubusercontent.com/TawsifTorabi/AETHER_UAV/refs/heads/main/docs/Diagrams/AetherSystemArch.drawio.png)
+
 
 
 - **Frame**: Modular carbon fiber, foldable for portability.
@@ -44,6 +45,8 @@ Bangladesh has seen a sharp rise in fire-related incidents and natural disasters
 - **Power**: 6S LiPo battery (2200–5000mAh).
 - **Environmental Sensors**: Smoke (MQ02), Carbon Monoxide (MQ09).
 - **Navigation**: Foxeer M10Q GPS with autonomous waypoint support.
+
+![image](https://raw.githubusercontent.com/ifta-faisal/Project-Dead-Cat/main/Diagram.jpg)
 
 ### 📡 Beacon Transmitter
 
