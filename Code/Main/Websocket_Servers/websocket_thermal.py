@@ -3,6 +3,8 @@ import websockets
 import socket
 
 #In windows systems, The firewall might block the Websocket Server from LAN.
+#To fix this, add Inbound/Outbound rules for the python.exe (you have do it seperately if you're using venv)
+#Also need to allow the port (default 8765) in the rules for inbound and outbound.
 
 PORT = 8765
 
