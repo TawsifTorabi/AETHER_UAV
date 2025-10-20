@@ -1,3 +1,4 @@
+#Legacy MLX90640 UDP Server for receiving thermal data frames
 import socket
 import numpy as np
 

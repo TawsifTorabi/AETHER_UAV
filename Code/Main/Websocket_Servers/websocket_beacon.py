@@ -6,7 +6,7 @@ import threading
 
 # Configuration
 PORT = 8766
-SERIAL_PORT = 'COM45'       # Change to your correct port
+SERIAL_PORT = 'COM3'       # Change to your correct port
 SERIAL_BAUDRATE = 115200
 
 connected_clients = set()
